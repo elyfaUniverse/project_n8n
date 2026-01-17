@@ -1,0 +1,19 @@
+build:
+  builder: DOCKERFILE
+  dockerfilePath: ./Dockerfile
+
+deploy:
+  startCommand: n8n start
+  healthcheckPath: /healthz
+
+variables:
+  - name: N8N_PROTOCOL
+    value: https
+  - name: WEBHOOK_URL
+    value: https://{{.AppName}}.up.railway.app
+  - name: GENERIC_TIMEZONE
+    value: Europe/Moscow
+
+services:
+  - type: web
+    port: 5678
