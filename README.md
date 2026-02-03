@@ -1,5 +1,7 @@
 
 ## Два процесса автоматизации для сайта на Tilda  🌐 https://universelyfa.ru/
+![Описание изображения](https://github.com/elyfaUniverse/project_n8n/blob/n8n/images/foto3.jpg)
+
 
 👉 Видео workflow n8n чат бота  🔗 https://cloud.mail.ru/public/hZro/SWnwXV8pe \
 👉 Видео workflow n8n парсинг новостей и сохранение в Airflow 🔗 https://cloud.mail.ru/public/EbBC/nuy33XkT4 \
