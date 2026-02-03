@@ -1,0 +1,150 @@
+{
+  "name": "chat_bot_tilda",
+  "nodes": [
+    {
+      "parameters": {
+        "public": true,
+        "mode": "webhook",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.chatTrigger",
+      "typeVersion": 1.4,
+      "position": [
+        -624,
+        -64
+      ],
+      "id": "5cb55312-4789-478c-a524-2f4aa8c97369",
+      "name": "When chat message received",
+      "webhookId": "a454dc8e-8fc7-4cc6-bc28-da352f100428"
+    },
+    {
+      "parameters": {
+        "model": "openai/gpt-3.5-turbo",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenRouter",
+      "typeVersion": 1,
+      "position": [
+        -128,
+        96
+      ],
+      "id": "45f57ec6-8981-40ac-b63a-5d81650f5a1a",
+      "name": "OpenRouter Chat Model",
+      "credentials": {
+        "openRouterApi": {
+          "id": "rUgfnyrchWzLfPdr",
+          "name": "OpenRouter account 3"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const llmResponse = $input.first().json;\n\nconsole.log('🤖 Ответ от LLM:', llmResponse);\n\nlet aiResponse = '';\n\nif (llmResponse.response) {\n  aiResponse = llmResponse.response;\n} else if (llmResponse.choices && llmResponse.choices[0] && llmResponse.choices[0].message) {\n  aiResponse = llmResponse.choices[0].message.content;\n} else if (llmResponse.content) {\n  aiResponse = llmResponse.content;\n} else if (llmResponse.text) {\n  aiResponse = llmResponse.text;\n} else {\n  aiResponse = 'Спасибо за ваше сообщение! Я AI-помощник сайта Universelyfa.';\n}\n\nconsole.log('💬 Ответ AI (сырой):', aiResponse);\n\n// ⚠️ ИСПРАВЛЕНИЕ НЕПРАВИЛЬНОЙ HTML-РАЗМЕТКИ\nfunction fixHtmlFormatting(text) {\n  let fixedText = text;\n  \n  // 1. Удаляем лишние закрывающие теги </ul> и неправильные теги\n  fixedText = fixedText.replace(/<\\/ul><br>/g, '</li><br>');\n  fixedText = fixedText.replace(/<\\/ul><\\/li>/g, '</li>');\n  \n  // 2. Правильно формируем список\n  // Находим все пункты списка\n  const listItems = fixedText.match(/<li>[\\s\\S]*?<\\/li>/g) || [];\n  \n  if (listItems && listItems.length > 0) {\n    // Собираем правильный HTML\n    const properHtml = \n      fixedText.split('<li>')[0] + // Текст до списка\n      '<ul>' + \n      listItems.map(item => item.replace(/<br>/g, '')).join('') + // Убираем <br> внутри элементов списка\n      '</ul>' + \n      fixedText.split('</li>').pop(); // Текст после списка\n    \n    return properHtml;\n  }\n  \n  return fixedText;\n}\n\n// ⚠️ АЛЬТЕРНАТИВНО: Преобразуем в чистый, правильно оформленный HTML\nfunction formatAsProperHtml(text) {\n  // Разделяем текст на части\n  const parts = text.split('<li>');\n  const intro = parts[0]; // Текст до списка\n  \n  if (parts.length < 2) {\n    // Если нет списка, возвращаем как есть\n    return text.replace(/<br>/g, '<br>');\n  }\n  \n  // Извлекаем пункты списка\n  const listItems = [];\n  for (let i = 1; i < parts.length; i++) {\n    const item = parts[i];\n    const cleanItem = item\n      .replace(/<\\/li>[\\s\\S]*$/, '') // Убираем все после </li>\n      .replace(/<\\/?ul>/g, '') // Убираем старые теги ul\n      .replace(/<br>/g, ' ') // Заменяем <br> на пробелы\n      .trim();\n    \n    if (cleanItem) {\n      listItems.push(cleanItem);\n    }\n  }\n  \n  // Текст после списка\n  const afterList = text.includes('</li>') \n    ? text.split('</li>').pop().replace(/<\\/?ul>/g, '').trim()\n    : '';\n  \n  // Собираем правильный HTML\n  let result = intro.trim();\n  \n  if (listItems.length > 0) {\n    result += '<ul style=\"margin: 15px 0; padding-left: 25px;\">';\n    listItems.forEach(item => {\n      result += `<li style=\"margin: 8px 0; line-height: 1.5;\">${item}</li>`;\n    });\n    result += '</ul>';\n  }\n  \n  if (afterList) {\n    result += `<p style=\"margin-top: 15px;\">${afterList}</p>`;\n  }\n  \n  return result;\n}\n\n// Используем функцию форматирования\nconst formattedResponse = formatAsProperHtml(aiResponse);\n\nconsole.log('💬 Ответ AI (исправленный):', formattedResponse);\n\n// ⚠️ ВАЖНО: Возвращаем только ОДИН объект с response!\nreturn [{\n  response: {\n    statusCode: 200,\n    headers: {\n      'Access-Control-Allow-Origin': 'https://universelyfa.ru',\n      'Content-Type': 'application/json'\n    },\n    body: JSON.stringify({\n      success: true,\n      aiResponse: formattedResponse,\n      reply: aiResponse, // оригинальный ответ для отладки\n      timestamp: new Date().toISOString(),\n      formatted: true\n    })\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        208,
+        -64
+      ],
+      "id": "2f3a9f63-fa10-4e22-b0fd-fb40363493fe",
+      "name": "Code in JavaScript1"
+    },
+    {
+      "parameters": {
+        "messages": {
+          "messageValues": [
+            {
+              "message": "Ты - профессиональный консультант. Отвечай четко, структурированно и по делу.  Форматирование: - Используй только чистый текст без HTML-тегов - Разделяй абзацы пустой строкой - Используй нумерацию для списков - Выделяй ключевые моменты, но без разметки - Отвечай на русском языке"
+            }
+          ]
+        },
+        "batching": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.7,
+      "position": [
+        -128,
+        -64
+      ],
+      "id": "e8a0fbf8-86e1-4149-ae5c-40b0e72b39d1",
+      "name": "Basic LLM Chain"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Преобразование для Basic LLM Chain\nconst input = $input.first();\nconst data = input.json || {};\n\nconsole.log('🔍 Входные данные:', data);\n\n// ВАЖНО: Basic LLM Chain читает только chatInput!\nconst output = {\n  chatInput: data.message || data.body?.message || 'Привет!',\n  \n  // Для отладки\n  metadata: {\n    sessionId: data.sessionId || data.body?.sessionId,\n    userId: data.userId || data.body?.userId,\n    source: 'tilda'\n  }\n};\n\nconsole.log('📤 Выходные данные для Basic LLM:', output);\n\nreturn [{\n  json: output\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -384,
+        -64
+      ],
+      "id": "52228b3d-70f0-4c5b-b58d-50f00c077769",
+      "name": "Code in JavaScript2"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "OpenRouter Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Basic LLM Chain",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "When chat message received": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Basic LLM Chain": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript2": {
+      "main": [
+        [
+          {
+            "node": "Basic LLM Chain",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript1": {
+      "main": [
+        []
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "f6d81844-ce67-4eb3-b207-41fa520f5382",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "332629f9bcfacaa1a25b9a359a5af551d01302abea4f08172266a77f2874794b"
+  },
+  "id": "aaLOCgMRv7pCbNBy",
+  "tags": []
+}
