@@ -45,11 +45,7 @@
 4. **Airtable Node** - сохранение в базу данных
 5. **Tilda Zero Block** - отображение на сайте
 
-![My Image](foto1.jpg)
-``` [1](https://github.com/elyfaUniverse/project_n8n/blob/n8n/images/foto1.jpg)
-
-Здесь текст в квадратных скобках — описание файла изображения, а текст в скобках — путь к изображению в репозитории. [3](https://github.com/elyfaUniverse/project_n8n/blob/n8n/images/foto1.jpg)
-
+![Описание изображения](https://github.com/elyfaUniverse/project_n8n/blob/n8n/images/foto1.jpg?raw=true)
 ---
 
 ## 🟣  Процесс 2: AI-чатбот для сайта
