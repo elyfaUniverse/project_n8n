@@ -1,8 +1,8 @@
 
 ## Два процесса автоматизации для сайта на Tilda https://universelyfa.ru/
-👉## Видео workflow n8n чат бота https://cloud.mail.ru/public/hZro/SWnwXV8pe
-👉## Видео workflow n8n парсинг новостей и сохранение в Airflow https://cloud.mail.ru/public/EbBC/nuy33XkT4
-👉## Общее видео результата на сайте https://cloud.mail.ru/public/LUGH/4nsQQbQJ2
+👉 ## Видео workflow n8n чат бота https://cloud.mail.ru/public/hZro/SWnwXV8pe
+👉 ## Видео workflow n8n парсинг новостей и сохранение в Airflow https://cloud.mail.ru/public/EbBC/nuy33XkT4
+👉 ## Общее видео результата на сайте https://cloud.mail.ru/public/LUGH/4nsQQbQJ2
 
 ## 🎯 Оглавление
 1. [Общее описание](#общее-описание)
