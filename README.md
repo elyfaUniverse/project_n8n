@@ -195,4 +195,6 @@ WEBHOOK_URL=https://your-n8n/webhook/chat-bot
 ```
 ### Общее видео результата на сайте  🔗 https://cloud.mail.ru/public/LUGH/4nsQQbQJ2 
 ---
+## 📜 Лицензия
 
+Проект распространяется под лицензией [MIT License](https://github.com/elyfaUniverse/project_n8n/blob/n8n/LICENSE.txt).
