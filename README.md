@@ -66,6 +66,9 @@
 4. **JavaScript Code** - форматирование ответов
 5. **Tilda JavaScript** - интеграция на сайте
 
+![Описание изображения](https://github.com/elyfaUniverse/project_n8n/blob/n8n/images/foto2.jpg)
+
+
 ---
 
 ## ✔️  Связь между процессами
