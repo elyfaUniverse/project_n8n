@@ -1,0 +1,257 @@
+{
+  "name": "news_tilda",
+  "nodes": [
+    {
+      "parameters": {
+        "url": "https://3dnews.ru/breaking/rss/",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        80,
+        32
+      ],
+      "id": "652ad16e-9269-4858-9bfd-1bf60e6ad8ef",
+      "name": "HTTP Request RSS1",
+      "alwaysOutputData": true,
+      "executeOnce": false,
+      "retryOnFail": true
+    },
+    {
+      "parameters": {
+        "operation": "toJson",
+        "mode": "each",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.convertToFile",
+      "typeVersion": 1.1,
+      "position": [
+        288,
+        32
+      ],
+      "id": "08eec01d-2321-4b04-b0ba-731592a6c2f2",
+      "name": "Convert to File",
+      "alwaysOutputData": true,
+      "retryOnFail": true
+    },
+    {
+      "parameters": {
+        "jsCode": "// Парсер RSS для 3DNews с рабочей функцией поиска изображений\nconst input = $input.first();\n\nif (!input || !input.binary || !input.binary.data || !input.binary.data.data) {\n  return [{ json: { error: 'No binary data received' } }];\n}\n\ntry {\n  // Декодируем Base64 в строку\n  const base64Data = input.binary.data.data;\n  const xmlString = Buffer.from(base64Data, 'base64').toString('utf-8');\n  \n  // Ищем все item элементы\n  const itemMatches = xmlString.match(/<item>[\\s\\S]*?<\\/item>/gi);\n  \n  if (!itemMatches || itemMatches.length === 0) {\n    return [{ json: { error: 'No news items found in RSS' } }];\n  }\n  \n  console.log(`🎯 НАЧАЛО ПАРСИНГА RSS`);\n  console.log(`Всего элементов <item> в RSS: ${itemMatches.length}`);\n  \n  const results = [];\n  const statistics = {\n    total: itemMatches.length,\n    added: 0,\n    skipped: {\n      noLink: 0,\n      duplicateInRss: 0,\n      tooOld: 0,\n      noTitle: 0,\n      dateParseError: 0\n    }\n  };\n  \n  // Множество для отслеживания обработанных ссылок в ЭТОМ RSS\n  const processedLinksInThisRSS = new Set();\n  \n  // Функция для извлечения содержимого тега\n  function getTagContent(xml, tagName) {\n    const regex = new RegExp('<' + tagName + '[^>]*>([\\\\s\\\\S]*?)<\\\\/' + tagName + '>', 'i');\n    const match = xml.match(regex);\n    if (match && match[1]) {\n      let content = match[1].trim();\n      // Убираем CDATA\n      content = content.replace(/<!\\[CDATA\\[(.*?)\\]\\]>/g, '$1');\n      // Декодируем HTML entities\n      content = content.replace(/&lt;/g, '<')\n                       .replace(/&gt;/g, '>')\n                       .replace(/&amp;/g, '&')\n                       .replace(/&quot;/g, '\"')\n                       .replace(/&apos;/g, \"'\")\n                       .replace(/&nbsp;/g, ' ')\n                       .replace(/&mdash;/g, '—')\n                       .replace(/&laquo;/g, '«')\n                       .replace(/&raquo;/g, '»');\n      return content;\n    }\n    return '';\n  }\n  \n  // ВОТ РАБОЧАЯ ФУНКЦИЯ ДЛЯ ПОИСКА ИЗОБРАЖЕНИЙ (из старого кода)\n  function getImageUrl(xml) {\n    // Вариант 1: Прямой поиск enclosure тега как в вашем примере\n    // <enclosure url=\"https://cdn.3dnews.ru/assets/external/illustrations/2026/01/26/1135849/00.jpg\" length=\"371553\" type=\"image/jpeg\" />\n    \n    // Ищем по точному шаблону\n    const directRegex = /<enclosure\\s+url\\s*=\\s*[\"']([^\"']+)[\"'][^>]*>/i;\n    const directMatch = xml.match(directRegex);\n    \n    if (directMatch) {\n      console.log('Found direct enclosure match:', directMatch[1].substring(0, 60) + '...');\n      return directMatch[1];\n    }\n    \n    // Вариант 2: Более гибкий поиск\n    const flexibleRegex = /<enclosure[^>]+url=[\"']([^\"']+\\.(?:jpg|jpeg|png|gif|webp))[\"'][^>]*>/i;\n    const flexibleMatch = xml.match(flexibleRegex);\n    \n    if (flexibleMatch) {\n      console.log('Found flexible enclosure match:', flexibleMatch[1].substring(0, 60) + '...');\n      return flexibleMatch[1];\n    }\n    \n    // Вариант 3: Ищем любую строку, похожую на URL изображения в item\n    const urlRegex = /(https?:\\/\\/[^\"\\'\\s<>]+\\.(?:jpg|jpeg|png|gif|webp))/gi;\n    const urlMatches = xml.match(urlRegex);\n    \n    if (urlMatches && urlMatches.length > 0) {\n      console.log('Found image URL in text:', urlMatches[0].substring(0, 60) + '...');\n      // Берем первый найденный URL изображения\n      return urlMatches[0];\n    }\n    \n    // Вариант 4: Ищем медиа контент\n    const mediaRegex = /<media:content[^>]*url=[\"']([^\"']+)[\"'][^>]*>/i;\n    const mediaMatch = xml.match(mediaRegex);\n    if (mediaMatch && mediaMatch[1]) {\n      console.log('Found media content:', mediaMatch[1].substring(0, 60) + '...');\n      return mediaMatch[1];\n    }\n    \n    console.log('No image found in this item');\n    return '';\n  }\n  \n  // Функция для извлечения атрибута category domain\n  function getCategoryDomain(xml) {\n    const regex = /<category[^>]*domain=[\"']([^\"']+)[\"'][^>]*>/i;\n    const match = xml.match(regex);\n    return match ? match[1] : '';\n  }\n  \n  // Обрабатываем ВСЕ элементы (не только первые 2)\n  for (let i = 0; i < itemMatches.length; i++) {\n    const itemXml = itemMatches[i];\n    const itemNumber = i + 1;\n    \n    console.log(`\\n📰 ЭЛЕМЕНТ ${itemNumber}/${itemMatches.length}`);\n    console.log(`----------------------------------------`);\n    \n    // Парсим данные\n    const title = getTagContent(itemXml, 'title');\n    const link = getTagContent(itemXml, 'link');\n    const description = getTagContent(itemXml, 'description');\n    const pubDate = getTagContent(itemXml, 'pubDate');\n    const category = getTagContent(itemXml, 'category');\n    const categoryDomain = getCategoryDomain(itemXml);\n    const imageUrl = getImageUrl(itemXml); // Используем рабочую функцию\n    \n    console.log(`📝 Заголовок: ${title ? '✓ ' + title.substring(0, 60) + '...' : '✗ НЕТ'}`);\n    console.log(`🔗 Ссылка: ${link ? '✓ ' + link.substring(0, 60) + '...' : '✗ НЕТ'}`);\n    console.log(`📅 Дата: ${pubDate ? '✓ ' + pubDate : '✗ НЕТ'}`);\n    console.log(`🖼️ Изображение: ${imageUrl ? '✓ ЕСТЬ' : '✗ НЕТ'}`);\n    if (imageUrl) {\n      console.log(`   URL: ${imageUrl.substring(0, 80)}...`);\n    }\n    \n    // ============ ШАГ 1: Проверка обязательных полей ============\n    if (!title) {\n      console.log(`❌ ПРОПУЩЕНО: Нет заголовка`);\n      statistics.skipped.noTitle++;\n      continue;\n    }\n    \n    if (!link) {\n      console.log(`❌ ПРОПУЩЕНО: Нет ссылки`);\n      statistics.skipped.noLink++;\n      continue;\n    }\n    \n    // ============ ШАГ 2: Проверка дубликатов в ЭТОМ RSS ============\n    if (processedLinksInThisRSS.has(link)) {\n      console.log(`❌ ПРОПУЩЕНО: Дубликат в этом RSS (уже обрабатывали)`);\n      statistics.skipped.duplicateInRSS++;\n      continue;\n    }\n    processedLinksInThisRSS.add(link);\n    \n    // ============ ШАГ 3: Проверка даты (ВРЕМЕННО ОТКЛЮЧИТЕ!) ============\n    // ЗАКОММЕНТИРУЙТЕ ЭТОТ БЛОК НА ВРЕМЯ ТЕСТИРОВАНИЯ!\n    /*\n    let skipDueToDate = false;\n    if (pubDate) {\n      try {\n        const newsDate = new Date(pubDate);\n        const now = new Date();\n        \n        if (isNaN(newsDate.getTime())) {\n          console.log(`⚠️ Не удалось распарсить дату: ${pubDate}`);\n          statistics.skipped.dateParseError++;\n        } else {\n          const daysDiff = (now - newsDate) / (1000 * 60 * 60 * 24);\n          console.log(`📆 Возраст новости: ${daysDiff.toFixed(1)} дней`);\n          \n          // УВЕЛИЧЬТЕ ИЛИ УБЕРИТЕ ЭТУ ПРОВЕРКУ!\n          if (daysDiff > 30) { // Измените на 30 или больше для теста\n            console.log(`❌ ПРОПУЩЕНО: Слишком старая (${daysDiff.toFixed(1)} дней)`);\n            statistics.skipped.tooOld++;\n            skipDueToDate = true;\n          }\n        }\n      } catch (e) {\n        console.log(`⚠️ Ошибка при обработке даты: ${e.message}`);\n        statistics.skipped.dateParseError++;\n      }\n    }\n    \n    if (skipDueToDate) {\n      continue;\n    }\n    */\n    // ============ КОНЕЦ ШАГА 3 ============\n    \n    // Очищаем описание\n    let cleanDescription = description;\n    if (cleanDescription) {\n      cleanDescription = cleanDescription.replace(/<[^>]*>/g, ' ');\n      cleanDescription = cleanDescription.replace(/\\s+/g, ' ').trim();\n      cleanDescription = cleanDescription.substring(0, 1000);\n    }\n    \n    // Определяем категорию\n    let finalCategory = '';\n    if (category) {\n      finalCategory = category;\n    } else if (categoryDomain) {\n      finalCategory = categoryDomain.replace('/', '');\n    }\n    \n    // Упрощаем категории\n    if (finalCategory.includes('software')) finalCategory = 'Software';\n    else if (finalCategory.includes('hardware')) finalCategory = 'Hardware';\n    else if (finalCategory.includes('storage')) finalCategory = 'Storage';\n    else if (finalCategory.includes('games')) finalCategory = 'Games';\n    else if (finalCategory.includes('Новости')) finalCategory = finalCategory.replace('Новости ', '');\n    \n    // Используем guid как альтернативную ссылку\n    let finalLink = link;\n    if (!finalLink) {\n      finalLink = getTagContent(itemXml, 'guid');\n    }\n    \n    // Форматируем для Airtable - ПРОСТАЯ СТРОКА для ImageUrl\n    results.push({\n      json: {\n        title: title || '',\n        link: finalLink || '',\n        description: cleanDescription || '',\n        date: pubDate || '',\n        select: finalCategory || '',\n        imageUrl: imageUrl || ''  // ПРОСТАЯ СТРОКА, не массив!\n      }\n    });\n    \n    statistics.added++;\n    console.log(`✅ ДОБАВЛЕНО В РЕЗУЛЬТАТЫ!`);\n  }\n  \n  // ============ ИТОГИ ============\n  console.log(`\\n📊 📊 📊 ИТОГИ ПАРСИНГА 📊 📊 📊`);\n  console.log(`========================================`);\n  console.log(`📈 Всего в RSS: ${statistics.total}`);\n  console.log(`✅ Добавлено: ${statistics.added}`);\n  console.log(`❌ Пропущено: ${statistics.total - statistics.added}`);\n  console.log(`\\n📋 Детали пропущенных:`);\n  console.log(`   • Без ссылки: ${statistics.skipped.noLink}`);\n  console.log(`   • Без заголовка: ${statistics.skipped.noTitle}`);\n  console.log(`   • Дубликаты в RSS: ${statistics.skipped.duplicateInRSS}`);\n  console.log(`   • Слишком старые: ${statistics.skipped.tooOld}`);\n  console.log(`   • Ошибки даты: ${statistics.skipped.dateParseError}`);\n  \n  if (results.length === 0) {\n    console.log(`\\n⚠️ ВНИМАНИЕ: Не добавлено ни одной новости!`);\n    return [{ json: { \n      message: 'No news added after filtering',\n      statistics: statistics,\n      debug: 'Check logs for details'\n    } }];\n  }\n  \n  // Считаем новости с изображениями\n  const withImages = results.filter(item => item.json.imageUrl).length;\n  console.log(`\\n🎉 УСПЕХ: ${results.length} новостей готовы к добавлению`);\n  console.log(`🖼️ Из них с изображениями: ${withImages}`);\n  \n  console.log(`\\n📋 ПЕРВЫЕ 5 ЗАПИСЕЙ ДЛЯ ДОБАВЛЕНИЯ:`);\n  results.slice(0, 5).forEach((item, idx) => {\n    const data = item.json;\n    console.log(`${idx + 1}. ${data.title.substring(0, 70)}...`);\n    console.log(`   Ссылка: ${data.link.substring(0, 60)}...`);\n    console.log(`   Дата: ${data.date}`);\n    console.log(`   Изображение: ${data.imageUrl ? '✓ ' + data.imageUrl.substring(0, 60) + '...' : '✗ НЕТ'}`);\n    console.log(`---`);\n  });\n  \n  return results;\n  \n} catch (err) {\n  console.error('❌ КРИТИЧЕСКАЯ ОШИБКА:', err);\n  return [{ json: { \n    error: 'Processing error',\n    message: err && err.message ? err.message : String(err),\n    stack: err.stack\n  } }];\n}"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        480,
+        32
+      ],
+      "id": "c31f61c7-cc3f-471e-a883-35b1c57d5c1e",
+      "name": "Code in JavaScript1",
+      "executeOnce": false,
+      "alwaysOutputData": true,
+      "retryOnFail": true
+    },
+    {
+      "parameters": {
+        "operation": "create",
+        "base": {
+          "__rl": true,
+          "value": "appNfPgU4FlJBD1Um",
+          "mode": "list",
+          "cachedResultName": "Tilda_n8n",
+          "cachedResultUrl": "https://airtable.com/appNfPgU4FlJBD1Um"
+        },
+        "table": {
+          "__rl": true,
+          "value": "tblCWBTRnKbCCK0t1",
+          "mode": "list",
+          "cachedResultName": "Table 1",
+          "cachedResultUrl": "https://airtable.com/appNfPgU4FlJBD1Um/tblCWBTRnKbCCK0t1"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Link": "={{ $json.link }}",
+            "Description": "={{ $json.description }}",
+            "Title": "={{ $json.title }}",
+            "Select": "={{ $json.select }}",
+            "ImageUrl": "={{ $json.imageUrl }}",
+            "Date": "={{ $json.date }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "Title",
+              "displayName": "Title",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Link",
+              "displayName": "Link",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Description",
+              "displayName": "Description",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Date",
+              "displayName": "Date",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "dateTime",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Select",
+              "displayName": "Select",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "ImageUrl",
+              "displayName": "ImageUrl",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "array",
+              "readOnly": false,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {
+          "typecast": true
+        }
+      },
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2.1,
+      "position": [
+        672,
+        32
+      ],
+      "id": "3e27cb7a-f6fd-435b-bce0-c592ec6bb38d",
+      "name": "Create a record",
+      "alwaysOutputData": true,
+      "retryOnFail": true,
+      "credentials": {
+        "airtableTokenApi": {
+          "id": "Y2GLNLun9cLz4Zah",
+          "name": "Airtable Personal Access Token account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {}
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.3,
+      "position": [
+        -128,
+        32
+      ],
+      "id": "f95bc39f-fb87-4643-a40a-b82940439863",
+      "name": "Schedule Trigger",
+      "alwaysOutputData": true,
+      "retryOnFail": true
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "HTTP Request RSS1": {
+      "main": [
+        [
+          {
+            "node": "Convert to File",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Convert to File": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript1": {
+      "main": [
+        [
+          {
+            "node": "Create a record",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create a record": {
+      "main": [
+        []
+      ]
+    },
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request RSS1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "e3539ca8-6a4e-44cb-9d0e-dc4585eed2cc",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "332629f9bcfacaa1a25b9a359a5af551d01302abea4f08172266a77f2874794b"
+  },
+  "id": "u2QtH4PCZ1u2KiPC",
+  "tags": []
+}
