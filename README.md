@@ -176,7 +176,7 @@ WEBHOOK_URL=https://your-n8n/webhook/chat-bot
 
 ## ✔️ Демонстрация работы
 
-###  Пример Process 1 (Новости): 🔗 https://cloud.mail.ru/public/hZro/SWnwXV8pe https://cloud.mail.ru/public/EbBC/nuy33XkT4
+###  Пример Process 1 (Новости): 🔗 https://cloud.mail.ru/public/hZro/SWnwXV8pe
 ```
 1. Каждый час n8n проверяет RSS 3DNews
 2. Находит 10 новых статей
