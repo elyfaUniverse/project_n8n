@@ -3,8 +3,8 @@
 ![Описание изображения](https://github.com/elyfaUniverse/project_n8n/blob/n8n/images/foto3.jpg)
 
 
-👉 Видео workflow n8n чат бота  🔗 https://cloud.mail.ru/public/hZro/SWnwXV8pe \
-👉 Видео workflow n8n парсинг новостей и сохранение в Airflow 🔗 https://cloud.mail.ru/public/EbBC/nuy33XkT4 \
+👉 Видео workflow n8n чат бота  🔗 https://cloud.mail.ru/public/EbBC/nuy33XkT4 \
+👉 Видео workflow n8n парсинг новостей и сохранение в Airflow 🔗 https://cloud.mail.ru/public/hZro/SWnwXV8pe https://cloud.mail.ru/public/EbBC/nuy33XkT4 \
 👉 Общее видео результата на сайте 🔗 https://cloud.mail.ru/public/LUGH/4nsQQbQJ2
 
 ## ✔️ Оглавление
@@ -176,7 +176,7 @@ WEBHOOK_URL=https://your-n8n/webhook/chat-bot
 
 ## ✔️ Демонстрация работы
 
-###  Пример Process 1 (Новости): 🔗 https://cloud.mail.ru/public/EbBC/nuy33XkT4
+###  Пример Process 1 (Новости): 🔗 https://cloud.mail.ru/public/hZro/SWnwXV8pe https://cloud.mail.ru/public/EbBC/nuy33XkT4
 ```
 1. Каждый час n8n проверяет RSS 3DNews
 2. Находит 10 новых статей
@@ -185,7 +185,7 @@ WEBHOOK_URL=https://your-n8n/webhook/chat-bot
 5. На сайте Tilda автоматически появляется новая новость
 ```
 
-### Пример Process 2 (Чатбот): 🔗 https://cloud.mail.ru/public/hZro/SWnwXV8pe
+### Пример Process 2 (Чатбот): 🔗 https://cloud.mail.ru/public/EbBC/nuy33XkT4
 ```
 1. Посетитель спрашивает: "Какие у вас есть новости о видеокартах?"
 2. Tilda отправляет вопрос на вебхук n8n
